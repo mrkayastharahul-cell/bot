@@ -2,7 +2,7 @@ window.startBot = async function () {
 
   console.log("🔥 Bot Core Started");
 
-  // 🔹 LOAD FIREBASE
+  // load firebase
   function load(src) {
     return new Promise((res, rej) => {
       const s = document.createElement("script");
@@ -17,9 +17,9 @@ window.startBot = async function () {
   await load("https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js");
 
   const firebaseConfig = {
-    apiKey: "YOUR_KEY",
-    authDomain: "YOUR_DOMAIN",
-    projectId: "YOUR_PROJECT"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID"
   };
 
   firebase.initializeApp(firebaseConfig);
@@ -30,6 +30,7 @@ window.startBot = async function () {
   let running = false;
   let target = null;
 
+  // listen commands
   db.collection("commands").doc("control")
     .onSnapshot(doc => {
       const data = doc.data();
@@ -49,6 +50,7 @@ window.startBot = async function () {
 
   const clean = t => (t || "").replace(/[^\d]/g, "");
 
+  // main loop
   setInterval(() => {
     if (!running || !target) return;
 
