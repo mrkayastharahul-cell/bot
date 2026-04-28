@@ -5,9 +5,7 @@ window.startBot = function () {
   let running = false;
   let target = "";
 
-  const clean = (t) => (t || "").replace(/[^\d]/g, "");
-
-  // 🔥 LOAD FIREBASE
+  // 🔥 Load Firebase
   const loadScript = (src) => new Promise((res, rej) => {
     const s = document.createElement("script");
     s.src = src;
@@ -32,7 +30,7 @@ window.startBot = function () {
 
     console.log("✅ Firebase Connected");
 
-    // 🔥 LISTEN COMMAND
+    // 🔥 Listen for command
     db.collection("commands").doc("control").onSnapshot((doc) => {
 
       const data = doc.data();
@@ -48,56 +46,64 @@ window.startBot = function () {
 
     });
 
-    // ⚡ FAST LOOP (MAIN ENGINE)
+    // ⚡ FINAL CLICK ENGINE (SMART TARGETING)
     setInterval(() => {
 
       if (!running || !target) return;
 
       let clicked = false;
 
-      const blocks = document.querySelectorAll("div");
+      const buttons = document.querySelectorAll("button");
 
-      blocks.forEach(block => {
+      buttons.forEach(btn => {
 
         if (clicked) return;
 
-        const text = clean(block.innerText);
+        const btnText = (btn.innerText || "").toLowerCase();
 
-        // 🔥 STRICT MATCH
-        if (text === target) {
+        if (btnText.includes("buy")) {
 
-          const btns = block.querySelectorAll("button");
+          // 🔥 Go up to find correct card/row
+          let container = btn.closest("div");
 
-          btns.forEach(btn => {
-            const t = btn.innerText.toLowerCase();
-
-            if (t.includes("buy")) {
-
-              btn.click();
-              clicked = true;
-              running = false;
-
-              console.log("⚡ CLICKED:", target);
-
-              // 💳 PAYMENT AUTO
-              setTimeout(() => {
-                document.querySelectorAll("button").forEach(b => {
-                  const tt = b.innerText.toLowerCase();
-
-                  if (
-                    tt.includes("upi") ||
-                    tt.includes("pay") ||
-                    tt.includes("mobikwik") ||
-                    tt.includes("bank")
-                  ) {
-                    b.click();
-                    console.log("💳 PAYMENT CLICKED");
-                  }
-                });
-              }, 800);
-
+          // try expanding scope (important for your UI)
+          for (let i = 0; i < 3; i++) {
+            if (container && !container.innerText.includes(target)) {
+              container = container.parentElement;
             }
-          });
+          }
+
+          if (!container) return;
+
+          const text = (container.innerText || "").replace(/[^\d]/g, "");
+
+          // 🔥 MATCH LOGIC
+          if (text.includes(target)) {
+
+            btn.click();
+            clicked = true;
+            running = false;
+
+            console.log("⚡ CLICKED:", target);
+
+            // 💳 AUTO PAYMENT
+            setTimeout(() => {
+              document.querySelectorAll("button").forEach(b => {
+                const t = (b.innerText || "").toLowerCase();
+
+                if (
+                  t.includes("upi") ||
+                  t.includes("pay") ||
+                  t.includes("mobikwik") ||
+                  t.includes("bank")
+                ) {
+                  b.click();
+                  console.log("💳 PAYMENT CLICKED:", t);
+                }
+              });
+            }, 800);
+
+          }
 
         }
 
