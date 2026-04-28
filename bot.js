@@ -2,7 +2,6 @@ window.startBot = function () {
 
   console.log("🔥 BOT CORE STARTED");
 
-  // ===== 🔐 FIREBASE CONFIG =====
   const firebaseConfig = {
     apiKey: "AIzaSyC7QAIYPrf94wzOBeNvGYk9wJ6HY08urA0",
     authDomain: "wallet-automation-695b2.firebaseapp.com",
@@ -13,7 +12,6 @@ window.startBot = function () {
     measurementId: "G-VRN0V2WG8X"
   };
 
-  // ===== 🔌 LOAD FIREBASE =====
   function loadFirebase() {
     return new Promise((resolve) => {
       if (window.firebase) return resolve();
@@ -24,10 +22,7 @@ window.startBot = function () {
       const s2 = document.createElement("script");
       s2.src = "https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js";
 
-      s1.onload = () => {
-        document.body.appendChild(s2);
-      };
-
+      s1.onload = () => document.body.appendChild(s2);
       s2.onload = () => resolve();
 
       document.body.appendChild(s1);
@@ -43,7 +38,7 @@ window.startBot = function () {
 
     let target = "";
 
-    // ===== 🎯 LISTEN COMMAND =====
+    // 🎯 Listen Firebase
     db.collection("commands").doc("control")
       .onSnapshot(doc => {
 
@@ -60,12 +55,12 @@ window.startBot = function () {
 
       });
 
-    // ===== 🧠 CLEAN TEXT =====
+    // 🧠 Clean text
     function clean(text) {
       return text.replace(/[^\d]/g, "");
     }
 
-    // ===== 🔍 FIND + CLICK BUY =====
+    // 🔍 Find and click Buy
     function findAndBuy(targetAmount) {
 
       let clicked = false;
@@ -83,12 +78,13 @@ window.startBot = function () {
           const btn = block.querySelector("button");
 
           if (btn && btn.innerText.toLowerCase().includes("buy")) {
+
             btn.click();
             clicked = true;
 
             console.log("⚡ CLICKED:", targetAmount);
 
-            setTimeout(selectPayment, 500);
+            setTimeout(selectPayment, 700);
           }
         }
       });
@@ -98,39 +94,44 @@ window.startBot = function () {
       }
     }
 
-    // ===== 💳 AUTO PAYMENT SELECT =====
+    // 💳 STRONG PAYMENT SELECT (FINAL FIX)
     function selectPayment() {
+
+      console.log("💳 Searching payment options...");
 
       let paid = false;
 
-      document.querySelectorAll("div, button").forEach(el => {
+      const blocks = document.querySelectorAll("div");
+
+      blocks.forEach(block => {
 
         if (paid) return;
 
-        const t = (el.innerText || "").toLowerCase();
+        const text = (block.innerText || "").toLowerCase();
 
-        if (t.includes("mobikwik")) {
-          el.click();
-          paid = true;
-          console.log("💳 MOBIKWIK SELECTED");
-        }
+        if (
+          text.includes("mobikwik") ||
+          text.includes("phonepe") ||
+          text.includes("super") ||
+          text.includes("upi")
+        ) {
 
-        else if (t.includes("upi")) {
-          el.click();
-          paid = true;
-          console.log("💳 UPI SELECTED");
-        }
+          // 🔥 Force click (works on tricky UI)
+          block.dispatchEvent(new MouseEvent("click", {
+            bubbles: true,
+            cancelable: true,
+            view: window
+          }));
 
-        else if (t.includes("phonepe")) {
-          el.click();
           paid = true;
-          console.log("💳 PHONEPE SELECTED");
+
+          console.log("💳 PAYMENT CLICKED:", text.slice(0, 50));
         }
 
       });
 
       if (!paid) {
-        console.log("❌ No payment option clicked");
+        console.log("❌ No payment option found");
       }
     }
 
