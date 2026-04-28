@@ -2,16 +2,17 @@ window.startBot = function () {
 
   console.log("🔥 BOT CORE STARTED");
 
+  let uiRunning = false;
+  let uiTarget = "";
+
+  // ===== 🔐 FIREBASE CONFIG =====
   const firebaseConfig = {
     apiKey: "AIzaSyC7QAIYPrf94wzOBeNvGYk9wJ6HY08urA0",
     authDomain: "wallet-automation-695b2.firebaseapp.com",
-    projectId: "wallet-automation-695b2",
-    storageBucket: "wallet-automation-695b2.firebasestorage.app",
-    messagingSenderId: "1062830743833",
-    appId: "1:1062830743833:web:e2e3df4587b106443c2588",
-    measurementId: "G-VRN0V2WG8X"
+    projectId: "wallet-automation-695b2"
   };
 
+  // ===== 🔌 LOAD FIREBASE =====
   function loadFirebase() {
     return new Promise((resolve) => {
       if (window.firebase) return resolve();
@@ -36,9 +37,7 @@ window.startBot = function () {
 
     console.log("✅ Firebase Connected");
 
-    let target = "";
-
-    // 🎯 Listen Firebase
+    // ===== 🎯 FIREBASE LISTENER (optional control) =====
     db.collection("commands").doc("control")
       .onSnapshot(doc => {
 
@@ -48,93 +47,160 @@ window.startBot = function () {
         console.log("📡 COMMAND:", data);
 
         if (data.action === "target_buy") {
-          target = data.amount;
-          console.log("🎯 TARGET SET:", target);
-          findAndBuy(target);
+          uiTarget = data.amount;
+          uiRunning = true;
+          updateStatus("REMOTE → " + uiTarget);
+        }
+
+        if (data.action === "stop") {
+          uiRunning = false;
+          updateStatus("STOPPED (REMOTE)");
         }
 
       });
-
-    // 🧠 Clean text
-    function clean(text) {
-      return text.replace(/[^\d]/g, "");
-    }
-
-    // 🔍 Find and click Buy
-    function findAndBuy(targetAmount) {
-
-      let clicked = false;
-
-      const blocks = document.querySelectorAll("div, li");
-
-      blocks.forEach(block => {
-
-        if (clicked) return;
-
-        const text = clean(block.innerText || "");
-
-        if (text.includes(targetAmount)) {
-
-          const btn = block.querySelector("button");
-
-          if (btn && btn.innerText.toLowerCase().includes("buy")) {
-
-            btn.click();
-            clicked = true;
-
-            console.log("⚡ CLICKED:", targetAmount);
-
-            setTimeout(selectPayment, 700);
-          }
-        }
-      });
-
-      if (!clicked) {
-        console.log("❌ No match for:", targetAmount);
-      }
-    }
-
-    // 💳 STRONG PAYMENT SELECT (FINAL FIX)
-    function selectPayment() {
-
-      console.log("💳 Searching payment options...");
-
-      let paid = false;
-
-      const blocks = document.querySelectorAll("div");
-
-      blocks.forEach(block => {
-
-        if (paid) return;
-
-        const text = (block.innerText || "").toLowerCase();
-
-        if (
-          text.includes("mobikwik") ||
-          text.includes("phonepe") ||
-          text.includes("super") ||
-          text.includes("upi")
-        ) {
-
-          // 🔥 Force click (works on tricky UI)
-          block.dispatchEvent(new MouseEvent("click", {
-            bubbles: true,
-            cancelable: true,
-            view: window
-          }));
-
-          paid = true;
-
-          console.log("💳 PAYMENT CLICKED:", text.slice(0, 50));
-        }
-
-      });
-
-      if (!paid) {
-        console.log("❌ No payment option found");
-      }
-    }
 
   });
+
+  // ===== 🧩 UI PANEL =====
+  (function createUI(){
+
+    const box = document.createElement("div");
+    box.style = `
+      position:fixed;
+      bottom:20px;
+      right:20px;
+      background:#111;
+      color:#fff;
+      padding:12px;
+      border-radius:10px;
+      z-index:99999;
+      font-size:12px;
+      width:200px;
+      box-shadow:0 0 10px rgba(0,0,0,0.5);
+    `;
+
+    box.innerHTML = `
+      <div style="margin-bottom:6px;">🔥 AUTO BOT</div>
+      <input id="amt" placeholder="Enter Amount" 
+        style="width:100%;margin-bottom:6px;padding:4px;" />
+      <button id="startBtn" style="width:100%;margin-bottom:4px;">▶ Start</button>
+      <button id="stopBtn" style="width:100%;">⏹ Stop</button>
+      <div id="status" style="margin-top:6px;font-size:10px;color:#0f0;">IDLE</div>
+    `;
+
+    document.body.appendChild(box);
+
+    window.updateStatus = (txt) => {
+      document.getElementById("status").innerText = txt;
+    };
+
+    document.getElementById("startBtn").onclick = () => {
+      const val = document.getElementById("amt").value;
+
+      if (!val) return alert("Enter amount");
+
+      uiTarget = val;
+      uiRunning = true;
+
+      updateStatus("RUNNING → " + val);
+
+      console.log("▶ START:", val);
+    };
+
+    document.getElementById("stopBtn").onclick = () => {
+      uiRunning = false;
+      uiTarget = "";
+
+      updateStatus("STOPPED");
+
+      console.log("⏹ STOPPED");
+    };
+
+  })();
+
+  // ===== 💳 PAYMENT SELECT =====
+  function selectPayment() {
+
+    console.log("💳 Searching payment...");
+
+    let paid = false;
+
+    document.querySelectorAll("div").forEach(block => {
+
+      if (paid) return;
+
+      const text = (block.innerText || "").toLowerCase();
+
+      if (
+        text.includes("mobikwik") ||
+        text.includes("phonepe") ||
+        text.includes("super") ||
+        text.includes("upi")
+      ) {
+
+        block.dispatchEvent(new MouseEvent("click", {
+          bubbles: true,
+          cancelable: true,
+          view: window
+        }));
+
+        paid = true;
+
+        console.log("💳 PAYMENT CLICKED:", text.slice(0, 50));
+      }
+
+    });
+
+    if (!paid) {
+      console.log("❌ No payment option found");
+    }
+  }
+
+  // ===== ⚡ MAIN AUTO ENGINE =====
+  setInterval(() => {
+
+    if (!uiRunning || !uiTarget) return;
+
+    let clicked = false;
+
+    const buttons = document.querySelectorAll("button");
+
+    buttons.forEach(btn => {
+
+      if (clicked) return;
+
+      const btnText = (btn.innerText || "").toLowerCase();
+
+      if (btnText.includes("buy")) {
+
+        let container = btn.closest("div");
+
+        for (let i = 0; i < 3; i++) {
+          if (container && !container.innerText.includes(uiTarget)) {
+            container = container.parentElement;
+          }
+        }
+
+        if (!container) return;
+
+        const text = (container.innerText || "").replace(/[^\d]/g, "");
+
+        if (text.includes(uiTarget)) {
+
+          btn.click();
+          clicked = true;
+
+          updateStatus("CLICKED → " + uiTarget);
+
+          console.log("⚡ CLICKED:", uiTarget);
+
+          setTimeout(selectPayment, 600);
+        }
+
+      }
+
+    });
+
+  }, 300);
 
 };
