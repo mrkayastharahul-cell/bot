@@ -1,51 +1,88 @@
-const clean = (t) => (t || "").replace(/[^\d]/g, "");
+window.startBot = function () {
 
-const observer = new MutationObserver(() => {
+  console.log("🔥 BOT CORE STARTED");
 
-  if (!running || !target) return;
+  let running = true;
+  let target = "";
 
-  let clicked = false;
+  const clean = (t) => (t || "").replace(/[^\d]/g, "");
 
-  const blocks = document.querySelectorAll("div, li");
+  // 🔥 FIREBASE
+  const firebaseConfig = {
+    apiKey: "AIzaSyC7QAIYPrf94wzOBeNvGYk9wJ6HY08urA0",
+    authDomain: "wallet-automation-695b2.firebaseapp.com",
+    projectId: "wallet-automation-695b2"
+  };
 
-  for (let block of blocks) {
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
 
-    if (clicked) break;
+  console.log("✅ Firebase Connected");
 
-    const text = clean(block.innerText);
+  // 🔥 LISTEN COMMAND
+  db.collection("commands").doc("control").onSnapshot((doc) => {
 
-    // 🔥 EXACT MATCH (not loose match)
-    if (text === target || text.includes(target)) {
+    const data = doc.data();
+    if (!data) return;
 
-      const btn = block.querySelector("button");
+    console.log("📡 COMMAND:", data);
 
-      if (btn && btn.innerText.toLowerCase().includes("buy")) {
+    if (data.action === "target_buy") {
+      target = data.amount;
+      running = true;
+      console.log("🎯 TARGET SET:", target);
+    }
 
-        btn.click();
-        clicked = true;
-        running = false;
+  });
 
-        console.log("⚡ INSTANT CLICK:", target);
+  // ⚡ FAST DETECTION
+  const observer = new MutationObserver(() => {
 
-        setTimeout(() => {
-          document.querySelectorAll("button").forEach(b => {
-            const t = b.innerText.toLowerCase();
-            if (t.includes("upi") || t.includes("pay") || t.includes("mobikwik")) {
-              b.click();
-              console.log("💳 PAYMENT CLICKED");
-            }
-          });
-        }, 1000);
+    if (!running || !target) return;
 
-        break;
+    let clicked = false;
+
+    const blocks = document.querySelectorAll("div, li");
+
+    for (let block of blocks) {
+
+      if (clicked) break;
+
+      const text = clean(block.innerText);
+
+      // 🔥 EXACT MATCH
+      if (text === target) {
+
+        const btn = block.querySelector("button");
+
+        if (btn && btn.innerText.toLowerCase().includes("buy")) {
+
+          btn.click();
+          clicked = true;
+          running = false;
+
+          console.log("⚡ CLICKED:", target);
+
+          setTimeout(() => {
+            document.querySelectorAll("button").forEach(b => {
+              const t = b.innerText.toLowerCase();
+              if (t.includes("upi") || t.includes("pay") || t.includes("mobikwik")) {
+                b.click();
+                console.log("💳 PAYMENT CLICKED");
+              }
+            });
+          }, 1000);
+
+          break;
+        }
       }
     }
-  }
 
-});
+  });
 
-// 🔥 WATCH PAGE CHANGES
-observer.observe(document.body, {
-  childList: true,
-  subtree: true
-});
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+
+};
