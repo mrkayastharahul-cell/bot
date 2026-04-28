@@ -1,206 +1,144 @@
 window.startBot = function () {
 
-  console.log("🔥 BOT CORE STARTED");
+  console.log("🔥 BOT STARTED");
 
-  let uiRunning = false;
-  let uiTarget = "";
+  let running = false;
+  let target = "";
+  let tried = [];
 
-  // ===== 🔐 FIREBASE CONFIG =====
-  const firebaseConfig = {
-    apiKey: "AIzaSyC7QAIYPrf94wzOBeNvGYk9wJ6HY08urA0",
-    authDomain: "wallet-automation-695b2.firebaseapp.com",
-    projectId: "wallet-automation-695b2"
-  };
+  // 🔊 sounds
+  const ding = () => new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg").play();
+  const chime = () => new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg").play();
 
-  // ===== 🔌 LOAD FIREBASE =====
-  function loadFirebase() {
-    return new Promise((resolve) => {
-      if (window.firebase) return resolve();
-
-      const s1 = document.createElement("script");
-      s1.src = "https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js";
-
-      const s2 = document.createElement("script");
-      s2.src = "https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js";
-
-      s1.onload = () => document.body.appendChild(s2);
-      s2.onload = () => resolve();
-
-      document.body.appendChild(s1);
-    });
-  }
-
-  loadFirebase().then(() => {
-
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-
-    console.log("✅ Firebase Connected");
-
-    // ===== 🎯 FIREBASE LISTENER (optional control) =====
-    db.collection("commands").doc("control")
-      .onSnapshot(doc => {
-
-        const data = doc.data();
-        if (!data) return;
-
-        console.log("📡 COMMAND:", data);
-
-        if (data.action === "target_buy") {
-          uiTarget = data.amount;
-          uiRunning = true;
-          updateStatus("REMOTE → " + uiTarget);
-        }
-
-        if (data.action === "stop") {
-          uiRunning = false;
-          updateStatus("STOPPED (REMOTE)");
-        }
-
-      });
-
-  });
-
-  // ===== 🧩 UI PANEL =====
-  (function createUI(){
-
+  // ===== UI =====
+  (function () {
     const box = document.createElement("div");
     box.style = `
-      position:fixed;
-      bottom:20px;
-      right:20px;
-      background:#111;
-      color:#fff;
-      padding:12px;
-      border-radius:10px;
-      z-index:99999;
+      position:fixed; bottom:20px; right:20px;
+      background:#111; color:#fff; padding:10px;
+      border-radius:10px; z-index:99999; width:180px;
       font-size:12px;
-      width:200px;
-      box-shadow:0 0 10px rgba(0,0,0,0.5);
     `;
 
     box.innerHTML = `
-      <div style="margin-bottom:6px;">🔥 AUTO BOT</div>
-      <input id="amt" placeholder="Enter Amount" 
-        style="width:100%;margin-bottom:6px;padding:4px;" />
-      <button id="startBtn" style="width:100%;margin-bottom:4px;">▶ Start</button>
-      <button id="stopBtn" style="width:100%;">⏹ Stop</button>
-      <div id="status" style="margin-top:6px;font-size:10px;color:#0f0;">IDLE</div>
+      <div>🔥 BOT</div>
+      <input id="amt" placeholder="Amount" style="width:100%;margin:5px 0;padding:4px;">
+      <button id="start">▶ Start</button>
+      <button id="stop">⏹ Stop</button>
+      <div id="st">IDLE</div>
     `;
 
     document.body.appendChild(box);
 
-    window.updateStatus = (txt) => {
-      document.getElementById("status").innerText = txt;
-    };
+    const st = document.getElementById("st");
 
-    document.getElementById("startBtn").onclick = () => {
+    document.getElementById("start").onclick = () => {
       const val = document.getElementById("amt").value;
-
       if (!val) return alert("Enter amount");
 
-      uiTarget = val;
-      uiRunning = true;
+      target = val;
+      running = true;
+      tried = [];
 
-      updateStatus("RUNNING → " + val);
-
+      st.innerText = "RUNNING → " + val;
       console.log("▶ START:", val);
     };
 
-    document.getElementById("stopBtn").onclick = () => {
-      uiRunning = false;
-      uiTarget = "";
-
-      updateStatus("STOPPED");
-
-      console.log("⏹ STOPPED");
+    document.getElementById("stop").onclick = () => {
+      running = false;
+      st.innerText = "STOPPED";
+      console.log("⏹ STOP");
     };
-
   })();
 
-  // ===== 💳 PAYMENT SELECT =====
-  function selectPayment() {
+  // ===== HELPERS =====
+  const clean = (t) => (t || "").replace(/[^\d]/g, "");
 
-    console.log("💳 Searching payment...");
+  const isPaymentPage = () =>
+    document.body.innerText.toLowerCase().includes("select method payment");
 
-    let paid = false;
-
-    document.querySelectorAll("div").forEach(block => {
-
-      if (paid) return;
-
-      const text = (block.innerText || "").toLowerCase();
-
-      if (
-        text.includes("mobikwik") ||
-        text.includes("phonepe") ||
-        text.includes("super") ||
-        text.includes("upi")
-      ) {
-
-        block.dispatchEvent(new MouseEvent("click", {
-          bubbles: true,
-          cancelable: true,
-          view: window
-        }));
-
-        paid = true;
-
-        console.log("💳 PAYMENT CLICKED:", text.slice(0, 50));
+  function clickDefault() {
+    document.querySelectorAll("div,button").forEach(el => {
+      if ((el.innerText || "").toLowerCase().includes("default")) {
+        el.click();
       }
-
     });
-
-    if (!paid) {
-      console.log("❌ No payment option found");
-    }
   }
 
-  // ===== ⚡ MAIN AUTO ENGINE =====
-  setInterval(() => {
-
-    if (!uiRunning || !uiTarget) return;
-
-    let clicked = false;
-
-    const buttons = document.querySelectorAll("button");
-
-    buttons.forEach(btn => {
-
-      if (clicked) return;
-
-      const btnText = (btn.innerText || "").toLowerCase();
-
-      if (btnText.includes("buy")) {
-
-        let container = btn.closest("div");
-
-        for (let i = 0; i < 3; i++) {
-          if (container && !container.innerText.includes(uiTarget)) {
-            container = container.parentElement;
-          }
-        }
-
-        if (!container) return;
-
-        const text = (container.innerText || "").replace(/[^\d]/g, "");
-
-        if (text.includes(uiTarget)) {
-
-          btn.click();
-          clicked = true;
-
-          updateStatus("CLICKED → " + uiTarget);
-
-          console.log("⚡ CLICKED:", uiTarget);
-
-          setTimeout(selectPayment, 600);
-        }
-
-      }
-
+  function findMatches() {
+    const res = [];
+    document.querySelectorAll("button").forEach(btn => {
+      const text = clean(btn.closest("div")?.innerText);
+      if (text.includes(target)) res.push(btn);
     });
+    return res.slice(0, 3);
+  }
 
-  }, 300);
+  function highlight(btns) {
+    btns.forEach(b => b.style.border = "2px solid red");
+  }
+
+  async function tryClicks(btns) {
+    for (let btn of btns) {
+
+      if (!running) return;
+
+      if (tried.includes(btn)) continue;
+      tried.push(btn);
+
+      console.log("⚡ Trying...");
+
+      btn.click();
+
+      await new Promise(r => setTimeout(r, 800));
+
+      if (isPaymentPage()) {
+        handlePayment();
+        return;
+      }
+    }
+
+    console.log("🔁 Retry loop");
+  }
+
+  function handlePayment() {
+    console.log("💳 Payment page detected");
+
+    ding();
+
+    setTimeout(() => {
+      document.querySelectorAll("div").forEach(el => {
+        const t = (el.innerText || "").toLowerCase();
+
+        if (t.includes("mobikwik")) {
+          el.click();
+          chime();
+          console.log("💳 Mobikwik clicked");
+          running = false;
+        }
+      });
+    }, 500);
+  }
+
+  // ===== MAIN LOOP =====
+  setInterval(async () => {
+
+    if (!running || !target) return;
+
+    if (isPaymentPage()) {
+      handlePayment();
+      return;
+    }
+
+    clickDefault();
+
+    const matches = findMatches();
+    if (matches.length === 0) return;
+
+    highlight(matches);
+
+    await tryClicks(matches);
+
+  }, 600);
 
 };
