@@ -2,115 +2,138 @@ window.startBot = function () {
 
   console.log("🔥 BOT CORE STARTED");
 
-  let running = false;
-  let target = "";
+  // ===== 🔐 FIREBASE CONFIG =====
+  const firebaseConfig = {
+    apiKey: "AIzaSyC7QAIYPrf94wzOBeNvGYk9wJ6HY08urA0",
+    authDomain: "wallet-automation-695b2.firebaseapp.com",
+    projectId: "wallet-automation-695b2",
+    storageBucket: "wallet-automation-695b2.firebasestorage.app",
+    messagingSenderId: "1062830743833",
+    appId: "1:1062830743833:web:e2e3df4587b106443c2588",
+    measurementId: "G-VRN0V2WG8X"
+  };
 
-  // 🔥 Load Firebase
-  const loadScript = (src) => new Promise((res, rej) => {
-    const s = document.createElement("script");
-    s.src = src;
-    s.onload = res;
-    s.onerror = rej;
-    document.head.appendChild(s);
-  });
+  // ===== 🔌 LOAD FIREBASE =====
+  function loadFirebase() {
+    return new Promise((resolve) => {
+      if (window.firebase) return resolve();
 
-  (async () => {
+      const s1 = document.createElement("script");
+      s1.src = "https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js";
 
-    await loadScript("https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js");
-    await loadScript("https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js");
+      const s2 = document.createElement("script");
+      s2.src = "https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyC7QAIYPrf94wzOBeNvGYk9wJ6HY08urA0",
-      authDomain: "wallet-automation-695b2.firebaseapp.com",
-      projectId: "wallet-automation-695b2"
-    };
+      s1.onload = () => {
+        document.body.appendChild(s2);
+      };
+
+      s2.onload = () => resolve();
+
+      document.body.appendChild(s1);
+    });
+  }
+
+  loadFirebase().then(() => {
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
     console.log("✅ Firebase Connected");
 
-    // 🔥 Listen for command
-    db.collection("commands").doc("control").onSnapshot((doc) => {
+    let target = "";
 
-      const data = doc.data();
-      if (!data) return;
+    // ===== 🎯 LISTEN COMMAND =====
+    db.collection("commands").doc("control")
+      .onSnapshot(doc => {
 
-      console.log("📡 COMMAND:", data);
+        const data = doc.data();
+        if (!data) return;
 
-      if (data.action === "target_buy") {
-        target = data.amount;
-        running = true;
-        console.log("🎯 TARGET SET:", target);
-      }
+        console.log("📡 COMMAND:", data);
 
-    });
-
-    // ⚡ FINAL CLICK ENGINE (SMART TARGETING)
-    setInterval(() => {
-
-      if (!running || !target) return;
-
-      let clicked = false;
-
-      const buttons = document.querySelectorAll("button");
-
-      buttons.forEach(btn => {
-
-        if (clicked) return;
-
-        const btnText = (btn.innerText || "").toLowerCase();
-
-        if (btnText.includes("buy")) {
-
-          // 🔥 Go up to find correct card/row
-          let container = btn.closest("div");
-
-          // try expanding scope (important for your UI)
-          for (let i = 0; i < 3; i++) {
-            if (container && !container.innerText.includes(target)) {
-              container = container.parentElement;
-            }
-          }
-
-          if (!container) return;
-
-          const text = (container.innerText || "").replace(/[^\d]/g, "");
-
-          // 🔥 MATCH LOGIC
-          if (text.includes(target)) {
-
-            btn.click();
-            clicked = true;
-            running = false;
-
-            console.log("⚡ CLICKED:", target);
-
-            // 💳 AUTO PAYMENT
-            setTimeout(() => {
-              document.querySelectorAll("button").forEach(b => {
-                const t = (b.innerText || "").toLowerCase();
-
-                if (
-                  t.includes("upi") ||
-                  t.includes("pay") ||
-                  t.includes("mobikwik") ||
-                  t.includes("bank")
-                ) {
-                  b.click();
-                  console.log("💳 PAYMENT CLICKED:", t);
-                }
-              });
-            }, 800);
-
-          }
-
+        if (data.action === "target_buy") {
+          target = data.amount;
+          console.log("🎯 TARGET SET:", target);
+          findAndBuy(target);
         }
 
       });
 
-    }, 300);
+    // ===== 🧠 CLEAN TEXT =====
+    function clean(text) {
+      return text.replace(/[^\d]/g, "");
+    }
 
-  })();
+    // ===== 🔍 FIND + CLICK BUY =====
+    function findAndBuy(targetAmount) {
+
+      let clicked = false;
+
+      const blocks = document.querySelectorAll("div, li");
+
+      blocks.forEach(block => {
+
+        if (clicked) return;
+
+        const text = clean(block.innerText || "");
+
+        if (text.includes(targetAmount)) {
+
+          const btn = block.querySelector("button");
+
+          if (btn && btn.innerText.toLowerCase().includes("buy")) {
+            btn.click();
+            clicked = true;
+
+            console.log("⚡ CLICKED:", targetAmount);
+
+            setTimeout(selectPayment, 500);
+          }
+        }
+      });
+
+      if (!clicked) {
+        console.log("❌ No match for:", targetAmount);
+      }
+    }
+
+    // ===== 💳 AUTO PAYMENT SELECT =====
+    function selectPayment() {
+
+      let paid = false;
+
+      document.querySelectorAll("div, button").forEach(el => {
+
+        if (paid) return;
+
+        const t = (el.innerText || "").toLowerCase();
+
+        if (t.includes("mobikwik")) {
+          el.click();
+          paid = true;
+          console.log("💳 MOBIKWIK SELECTED");
+        }
+
+        else if (t.includes("upi")) {
+          el.click();
+          paid = true;
+          console.log("💳 UPI SELECTED");
+        }
+
+        else if (t.includes("phonepe")) {
+          el.click();
+          paid = true;
+          console.log("💳 PHONEPE SELECTED");
+        }
+
+      });
+
+      if (!paid) {
+        console.log("❌ No payment option clicked");
+      }
+    }
+
+  });
 
 };
